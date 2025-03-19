@@ -1,8 +1,11 @@
 const express = require('express')
+const cors = require('cors')
 const Minio = require('minio')
 
 const app = express()
-const port = 3000
+const port = 3001
+
+app.use(cors())
 
 const minioClient = new Minio.Client({
     endPoint: '16.16.66.55',
