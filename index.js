@@ -26,23 +26,46 @@ minioClient.bucketExists('boss-worker-bucket', function (err, exists) {
     }
 })
 
-app.get('/list/:bucket', (req, res) => {
+app.get('/list/:bucket', async (req, res) => {
     const { bucket } = req.params
     const objectList = []
 
-    const stream = minioClient.listObjects(bucket, '', true)
+    // const stream = minioClient.listObjects(bucket, '', true)
 
-    stream.on('data', (obj) => {
-        objectList.push(obj.name)
-    })
+    // stream.on('data', (obj) => {
+    //     objectList.push(obj.name)
+    // })
 
-    stream.on('end', () => {
+    // stream.on('end', () => {
+    //     res.json({ files: objectList })
+    // })
+
+    // stream.on('error', (err) => {
+    //     res.status(500).send('Error to get list of files: ' + err.message)
+    // })
+
+
+    try {
+        const stream = minioClient.listObjects(bucket, '', true)
+
+        for await (const obj of stream) {
+            const tags = await new Promise((resolve, reject) => {
+                minioClient.getObjectTagging(bucket, obj.name, (err, tags) => {
+                    if (err) return reject(err);
+                    resolve(tags)
+                })
+            })
+
+            objectList.push({
+                name: obj.name,
+                tags: tags || {},
+            })
+        }
+
         res.json({ files: objectList })
-    })
-
-    stream.on('error', (err) => {
-        res.status(500).send('Error to get list of files: ' + err.message)
-    })
+    } catch (err) {
+        res.status(500).send('error for getting files: ' + err.message)
+    }
 })
 
 app.get('/download/:bucket/:object', (req, res) => {
