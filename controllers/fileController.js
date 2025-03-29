@@ -64,12 +64,87 @@ const downloadFile = (req, res) => {
 
 const getFileHistory = async (req, res) => {
     try {
-        const result = await client.query('SELECT * FROM files ORDER BY last_modified DESC;')
-        res.json({ files: result.rows })
-    } catch (err) {
-        console.error("Error fetching file history: ", err)
-        res.status(500).send('Error fetching file history')
-    }
-}
+        const result = await client.query(`
+            SELECT 
+                id,
+                name,
+                bucket,
+                tags,
+                last_modified,
+                completed,
+                CASE 
+                    WHEN completed THEN 'completed'
+                    ELSE 'pending'
+                END as status
+            FROM files 
+            ORDER BY last_modified DESC
+        `);
 
-module.exports = { listFiles, downloadFile, getFileHistory }
+        const files = result.rows.map(file => {
+            // Для PostgreSQL драйвер уже преобразует jsonb в объект JavaScript
+            // Просто убедимся, что tags - это массив
+            const tags = Array.isArray(file.tags) ? file.tags : [];
+
+            return {
+                ...file,
+                tags: tags.map(tag => ({
+                    // Убедимся, что каждый тег имеет Key и Value
+                    Key: tag.Key || '',
+                    Value: tag.Value || ''
+                }))
+            };
+        });
+
+        res.json({ files });
+    } catch (err) {
+        console.error("Error fetching file history:", err);
+        res.status(500).json({ error: 'Error fetching file history' });
+    }
+};
+
+const updateTaskStatus = async (req, res) => {
+    const { fileId } = req.params;
+    const { completed } = req.body;
+
+    if (!fileId || typeof completed !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid request parameters' });
+    }
+
+    try {
+
+        const fileResult = await client.query(
+            `SELECT id FROM files WHERE id = $1`,
+            [fileId]
+        );
+
+        if (fileResult.rows.length === 0) {
+            return res.status(404).json({ error: 'File not found in database' });
+        }
+
+        const file = fileResult.rows[0];
+
+
+
+        const updateResult = await client.query(
+            `UPDATE files 
+             SET completed = $1
+             WHERE id = $2
+             RETURNING *`,
+            [completed, fileId]
+        );
+
+        res.json({
+            success: true,
+            file: updateResult.rows[0]
+        });
+
+    } catch (err) {
+        console.error("Error updating task status:", err);
+        res.status(500).json({
+            error: 'Failed to update task status',
+            details: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
+    }
+};
+
+module.exports = { listFiles, downloadFile, getFileHistory, updateTaskStatus }
