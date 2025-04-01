@@ -55,7 +55,9 @@ const downloadFile = (req, res) => {
             return res.status(500).send('Error with receiving data: ' + err.message)
         }
 
-        res.setHeader('Content-Disposition', `attachment; filename=${object}`)
+        const encodedFilename = encodeURIComponent(object)
+
+        res.setHeader('Content-Disposition', `attachment; filename=${encodedFilename}`)
         res.setHeader('Content-Type', 'application/octet-stream')
 
         dataStream.pipe(res)
