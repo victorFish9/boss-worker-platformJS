@@ -10,11 +10,7 @@ const fileRoutes = require('./routes/fileRoutes')
 const app = express()
 const port = 3001
 
-app.use(cors({
-    origin: "https://boss-worker-frontend-bo34.vercel.app",
-    methods: "GET,POST,PUT,DELETE",
-    allowedHeaders: "Content-Type,Authorization"
-}))
+app.use(cors())
 app.use(express.json())
 
 app.use('/auth', authRoutes)

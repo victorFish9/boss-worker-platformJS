@@ -1,5 +1,90 @@
+const { google } = require('googleapis')
 const client = require('../config/database')
 const minioClient = require('../config/minio')
+
+const fs = require('fs');
+const path = require('path');
+
+const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+)
+
+oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+
+const drive = google.drive({ version: 'v3', auth: oauth2Client })
+
+const listGoogleDriveFiles = async (req, res) => {
+    const FOLDER_ID = process.env.FOLDER_ID;
+
+    try {
+        const response = await drive.files.list({
+            q: `'${FOLDER_ID}' in parents and trashed = false`,
+            fields: 'files(id, name, mimeType)',
+            pageSize: 1000,
+        });
+
+        const files = response.data.files;
+
+        const fileList = files.map(file => ({
+            id: file.id,
+            name: file.name,
+            type: file.mimeType,
+            // клиент будет вызывать /api/download/:id чтобы скачать
+            apiDownloadLink: `/api/download/${file.id}`
+        }));
+
+        res.json(fileList);
+    } catch (error) {
+        console.error('Google Drive API error:', error);
+        res.status(500).json({ error: 'Failed to list files' });
+    }
+};
+
+const streamFileFromDrive = async (req, res) => {
+    const fileId = req.params.fileId;
+
+    try {
+        // Сначала получаем имя файла
+        const metadata = await drive.files.get({
+            fileId,
+            fields: 'name',
+        });
+
+        const fileName = metadata.data.name;
+
+        // Затем получаем сам файл в виде потока
+        const response = await drive.files.get(
+            { fileId, alt: 'media' },
+            { responseType: 'stream' }
+        );
+
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Type', 'application/octet-stream');
+
+        response.data.pipe(res);
+    } catch (err) {
+        console.error('Ошибка при стриминге файла:', err.message);
+        res.status(500).json({ error: 'Ошибка при скачивании файла' });
+    }
+};
+
+
+
+const getGoogleFileDownloadUrl = async (req, res) => {
+    try {
+        const fileId = req.params.fileId;
+        const downloadUrl = `https://drive.google.com/uc?id=${fileId}&export=download`;
+
+        res.json({
+            downloadUrl,
+            directDownload: `${downloadUrl}&confirm=t` // Для больших файлов
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
 const listFiles = async (req, res) => {
     const { bucket } = req.params
@@ -149,4 +234,4 @@ const updateTaskStatus = async (req, res) => {
     }
 };
 
-module.exports = { listFiles, downloadFile, getFileHistory, updateTaskStatus }
+module.exports = { listFiles, downloadFile, getFileHistory, updateTaskStatus, getGoogleFileDownloadUrl, listGoogleDriveFiles, streamFileFromDrive }
