@@ -32,7 +32,7 @@ const listGoogleDriveFiles = async (req, res) => {
             name: file.name,
             type: file.mimeType,
             // клиент будет вызывать /api/download/:id чтобы скачать
-            apiDownloadLink: `/api/download/${file.id}`
+            apiDownloadLink: `/files/google/list/${file.id}`
         }));
 
         res.json(fileList);
