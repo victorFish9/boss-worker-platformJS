@@ -21,7 +21,7 @@ const listGoogleDriveFiles = async (req, res) => {
     try {
         const response = await drive.files.list({
             q: `'${FOLDER_ID}' in parents and trashed = false`,
-            fields: 'files(id, name, mimeType)',
+            fields: 'files(id, name, mimeType, createdTime, size)',
             pageSize: 1000,
         });
 
@@ -31,7 +31,8 @@ const listGoogleDriveFiles = async (req, res) => {
             id: file.id,
             name: file.name,
             type: file.mimeType,
-            // клиент будет вызывать /api/download/:id чтобы скачать
+            createdAt: file.createdTime,
+            size: file.size,
             apiDownloadLink: `/files/google/list/${file.id}`
         }));
 
@@ -46,7 +47,7 @@ const streamFileFromDrive = async (req, res) => {
     const fileId = req.params.fileId;
 
     try {
-        // Сначала получаем имя файла
+
         const metadata = await drive.files.get({
             fileId,
             fields: 'name',
@@ -54,7 +55,7 @@ const streamFileFromDrive = async (req, res) => {
 
         const fileName = metadata.data.name;
 
-        // Затем получаем сам файл в виде потока
+
         const response = await drive.files.get(
             { fileId, alt: 'media' },
             { responseType: 'stream' }
