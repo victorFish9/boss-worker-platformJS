@@ -27,14 +27,28 @@ const listGoogleDriveFiles = async (req, res) => {
 
         const files = response.data.files;
 
-        const fileList = files.map(file => ({
-            id: file.id,
-            name: file.name,
-            type: file.mimeType,
-            createdAt: file.createdTime,
-            size: file.size,
-            apiDownloadLink: `/files/google/list/${file.id}`
-        }));
+
+        const fileList = [];
+
+        for (const file of files) {
+            const fileData = {
+                id: file.id,
+                name: file.name,
+                type: file.mimeType,
+                createdAt: file.createdTime,
+                size: file.size || 0,
+                apiDownloadLink: `/files/google/list/${file.id}`
+            };
+
+            fileList.push(fileData);
+
+            await client.query(`
+                INSERT INTO files (id, name, type, created_at, size, source)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (id) DO UPDATE 
+                SET name = EXCLUDED.name, type = EXCLUDED.type, created_at = EXCLUDED.created_at, size = EXCLUDED.size;
+            `, [fileData.id, fileData.name, fileData.type, fileData.createdAt, fileData.size, 'google']);
+        }
 
         res.json(fileList);
     } catch (error) {
@@ -159,32 +173,19 @@ const getFileHistory = async (req, res) => {
             SELECT 
                 id,
                 name,
-                bucket,
-                tags,
-                last_modified,
+                created_at,
                 completed,
                 CASE 
                     WHEN completed THEN 'completed'
                     ELSE 'pending'
                 END as status
             FROM files 
-            ORDER BY last_modified DESC
+            ORDER BY created_at DESC
         `);
 
-        const files = result.rows.map(file => {
-            // Для PostgreSQL драйвер уже преобразует jsonb в объект JavaScript
-            // Просто убедимся, что tags - это массив
-            const tags = Array.isArray(file.tags) ? file.tags : [];
-
-            return {
-                ...file,
-                tags: tags.map(tag => ({
-                    // Убедимся, что каждый тег имеет Key и Value
-                    Key: tag.Key || '',
-                    Value: tag.Value || ''
-                }))
-            };
-        });
+        const files = result.rows.map(file => ({
+            ...file
+        }));
 
         res.json({ files });
     } catch (err) {
