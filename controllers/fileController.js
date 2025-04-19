@@ -61,7 +61,10 @@ const streamFileFromDrive = async (req, res) => {
             { responseType: 'stream' }
         );
 
-        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        const asciiFileName = fileName.replace(/[^\x00-\x7F]/g, "_")
+
+
+        res.setHeader('Content-Disposition', `attachment; filename="${asciiFileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`);
         res.setHeader('Content-Type', 'application/octet-stream');
 
         response.data.pipe(res);

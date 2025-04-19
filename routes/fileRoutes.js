@@ -9,7 +9,7 @@ router.get('/download/:bucket/:object', downloadFile)
 router.get('/history', getFileHistory)
 router.put('/history/:fileId/status', authenticateJWT, updateTaskStatus)
 
-router.get('/google/list', listGoogleDriveFiles)
+router.get('/google/list', authenticateJWT, listGoogleDriveFiles)
 router.get('/google/list/:fileId', streamFileFromDrive)
 
 module.exports = router
