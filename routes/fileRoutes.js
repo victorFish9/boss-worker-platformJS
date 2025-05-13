@@ -6,7 +6,7 @@ const router = express.Router()
 
 router.get('/list/:bucket', authenticateJWT, listFiles)
 router.get('/download/:bucket/:object', downloadFile)
-router.get('/history', getFileHistory)
+router.get('/history', authenticateJWT, getFileHistory)
 router.put('/history/:fileId/status', authenticateJWT, updateTaskStatus)
 
 router.get('/google/list', authenticateJWT, listGoogleDriveFiles)

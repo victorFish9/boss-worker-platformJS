@@ -2,9 +2,6 @@ const { google } = require('googleapis')
 const client = require('../config/database')
 const minioClient = require('../config/minio')
 
-const fs = require('fs');
-const path = require('path');
-
 const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
@@ -12,6 +9,7 @@ const oauth2Client = new google.auth.OAuth2(
 )
 
 oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN })
+
 
 const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
@@ -24,7 +22,6 @@ const listGoogleDriveFiles = async (req, res) => {
             fields: 'files(id, name, mimeType, createdTime, size)',
             pageSize: 1000,
         });
-
         const files = response.data.files;
 
 
